@@ -78,165 +78,169 @@ Learn about Vertex AI pricing, and use the Pricing Calculator to generate a cost
 # Create retrievers
 As mentioned earlier, the objective is to leverage information from closed-domain databases in order to provide more context to the LLM. To do so, you will create a retriever in Langchain capable of interacting with the local vector database.
 
-!gsutil -m cp -r "gs://genai-document-library*" .
+    !gsutil -m cp -r "gs://genai-document-library*" .
 
 You then define a set of functions to enable the creation of the two vector databases.
 
-def chunks(lst: List[Any], n: int) -> Iterator[List[Any]]:
-    """Yield successive n-sized chunks from lst.
+    def chunks(lst: List[Any], n: int) -> Iterator[List[Any]]:
+        """Yield successive n-sized chunks from lst.
+    
+        Args:
+            lst: The list to be chunked.
+            n: The size of each chunk.
 
-    Args:
-        lst: The list to be chunked.
-        n: The size of each chunk.
-
-    Yields:
-        A list of the next n elements from lst.
-    """
-
-    for i in range(0, len(lst), n):
-        yield lst[i : i + n]
-
-
-def load_docs_from_directory(dir_path: str) -> List[Document]:
-    """Loads a series of docs from a directory.
-
-    Args:
-      dir_path: The path to the directory containing the docs.
-
-    Returns:
-      A list of the docs in the directory.
-    """
-
-    docs = []
-    for file_path in glob.glob(dir_path):
-        loader = TextLoader(file_path)
-        docs = docs + loader.load()
-    return docs
-
-
-def create_retriever(top_k_results: int, dir_path: str) -> VectorStoreRetriever:
-    """Create a retriever from a list of top results and a list of web pages.
-
-    Args:
-        top_k_results: number of results to return when retrieving
-        dir_path: List of web pages.
-
-    Returns:
-        A retriever.
-    """
-
-    BATCH_SIZE_EMBEDDINGS = 5
-    docs = load_docs_from_directory(dir_path=dir_path)
-    doc_chunk = chunks(docs, BATCH_SIZE_EMBEDDINGS)
-    for (index, chunk) in tqdm(enumerate(doc_chunk)):
-        if index == 0:
-            db = FAISS.from_documents(chunk, embedding)
-        else:
-            db.add_documents(chunk)
-
-    retriever = db.as_retriever(search_kwargs={"k": top_k_results})
-    return retriever
+        Yields:
+            A list of the next n elements from lst.
+        """
+    
+        for i in range(0, len(lst), n):
+            yield lst[i : i + n]
+    
+    
+    def load_docs_from_directory(dir_path: str) -> List[Document]:
+        """Loads a series of docs from a directory.
+    
+        Args:
+          dir_path: The path to the directory containing the docs.
+    
+        Returns:
+          A list of the docs in the directory.
+        """
+    
+        docs = []
+        for file_path in glob.glob(dir_path):
+            loader = TextLoader(file_path)
+            docs = docs + loader.load()
+        return docs
+    
+    
+    def create_retriever(top_k_results: int, dir_path: str) -> VectorStoreRetriever:
+        """Create a retriever from a list of top results and a list of web pages.
+    
+        Args:
+            top_k_results: number of results to return when retrieving
+            dir_path: List of web pages.
+    
+        Returns:
+            A retriever.
+        """
+    
+        BATCH_SIZE_EMBEDDINGS = 5
+        docs = load_docs_from_directory(dir_path=dir_path)
+        doc_chunk = chunks(docs, BATCH_SIZE_EMBEDDINGS)
+        for (index, chunk) in tqdm(enumerate(doc_chunk)):
+            if index == 0:
+                db = FAISS.from_documents(chunk, embedding)
+            else:
+                db.add_documents(chunk)
+    
+        retriever = db.as_retriever(search_kwargs={"k": top_k_results})
+        return retriever
 
 You are now ready to create the Vector DBs using the function defined in the previous step. Each Vector DB will provide a retriever instance, a Python object that, given a query, will provide a list of documents matching that query.
 
 You will create:
 
-chunks_retriever = create_retriever(top_k_results=2, dir_path="./chunks/*")
-docs_retriever = create_retriever(top_k_results=5, dir_path="./docs/*")
+    chunks_retriever = create_retriever(top_k_results=2, dir_path="./chunks/*")
+    docs_retriever = create_retriever(top_k_results=5, dir_path="./docs/*")
 
 Now you are ready to test the retrievers! 
 
-docs = chunks_retriever.get_relevant_documents("Is there a parental policy?")
-pprint.pprint([doc.metadata for doc in docs])
-
-docs = docs_retriever.get_relevant_documents("Is there a maternity policy?")
-pprint.pprint([doc.metadata for doc in docs])
+    docs = chunks_retriever.get_relevant_documents("Is there a parental policy?")
+    pprint.pprint([doc.metadata for doc in docs])
+    
+    docs = docs_retriever.get_relevant_documents("Is there a maternity policy?")
+    pprint.pprint([doc.metadata for doc in docs])
 
 # Agent
 Now that you have created the retrievers, it's time to create the Langchain Agent, which will implement a ReAct-like approach.
 
 You will first create the two tools to leverage the two retriever objects defined previously, chunks_retriever and docs_retriever
 
-@tool(return_direct=True)
-def retrieve_chunks(query: str) -> str:
-    """
-    Searches the catalog to find data for the query.
-    Return the output without processing further.
-    """
-    docs = chunks_retriever.get_relevant_documents(query)
-
-    return (
-        f"Select the data you would like to explore further about {query}: [START CALLBACK FRONTEND] "
-        + str([doc.metadata for doc in docs])
-        + " [END CALLBACK FRONTEND]"
-    )
-
-@tool(return_direct=True)
-def retrieve_docs(query: str) -> str:
-    """Searches the catalog to find products for the query.
-    """
-    docs = docs_retriever.get_relevant_documents(query)
-    return (
-        f"I found these products about {query}:  [START CALLBACK FRONTEND] "
-        + str([doc.metadata for doc in docs])
-        + " [END CALLBACK FRONTEND]"
-    )
+    @tool(return_direct=True)
+    def retrieve_chunks(query: str) -> str:
+        """
+        Searches the catalog to find data for the query.
+        Return the output without processing further.
+        """
+        docs = chunks_retriever.get_relevant_documents(query)
+    
+        return (
+            f"Select the data you would like to explore further about {query}: [START CALLBACK FRONTEND] "
+            + str([doc.metadata for doc in docs])
+            + " [END CALLBACK FRONTEND]"
+        )
+    
+    @tool(return_direct=True)
+    def retrieve_docs(query: str) -> str:
+        """Searches the catalog to find products for the query.
+        """
+        docs = docs_retriever.get_relevant_documents(query)
+        return (
+            f"I found these products about {query}:  [START CALLBACK FRONTEND] "
+            + str([doc.metadata for doc in docs])
+            + " [END CALLBACK FRONTEND]"
+        )
 
 You will define chunks_selector, a tool that will be used by the Agent to capture the action of the user selecting a policy. The path of chunks is used as an identifier of that policy.
 
-@tool
-def chunks_selector(path: str) -> str:
-    """
-    Use this when the user selects a policy.
-    You will need to respond to the user telling what are the options once a policy is selected.
-    """
-    return "I can help you with further information - Just Ask away!"
+    @tool
+    def chunks_selector(path: str) -> str:
+        """
+        Use this when the user selects a policy.
+        You will need to respond to the user telling what are the options once a policy is selected.
+        """
+        return "I can help you with further information - Just Ask away!"
 
 
+    docs = load_docs_from_directory("./chunks/*")
+    chunks_detail = {doc.metadata["source"]: doc.page_content for doc in docs}
 
-docs = load_docs_from_directory("./chunks/*")
-chunks_detail = {doc.metadata["source"]: doc.page_content for doc in docs}
 
-
-@tool
-def get_chunks_detail(path: str) -> str:
-    """
-    Use it to find more information for a specific policy, such as the policy entitlements, coverage, etc.
-    """
-    try:
-        return chunks_detail[path]
-    except KeyError:
-        return "Could not find the details for this policy"
-
+    @tool
+    def get_chunks_detail(path: str) -> str:
+        """
+        Use it to find more information for a specific policy, such as the policy entitlements, coverage, etc.
+        """
+        try:
+            return chunks_detail[path]
+        except KeyError:
+            return "Could not find the details for this policy"
 
 # Creating the agent
 
 The agent will be initialised with the type CONVERSATIONAL_REACT_DESCRIPTION. To know more about it, have a look at the relative documentation and other agent types.
 
-memory = ConversationBufferMemory(memory_key="chat_history")
-memory.clear()
-
-tool = [
-    retrieve_chunks,
-    retrieve_docs,
-    get_chunks_detail,
-    chunks_selector,
-]
-agent = initialize_agent(
-    tool,
-    llm,
-    agent=AgentType.CONVERSATIONAL_REACT_DESCRIPTION,
-    memory=memory,
-    verbose=True,
-)
+    memory = ConversationBufferMemory(memory_key="chat_history")
+    memory.clear()
+    
+    tool = [
+        retrieve_chunks,
+        retrieve_docs,
+        get_chunks_detail,
+        chunks_selector,
+    ]
+    agent = initialize_agent(
+        tool,
+        llm,
+        agent=AgentType.CONVERSATIONAL_REACT_DESCRIPTION,
+        memory=memory,
+        verbose=True,
+    )
 
 
 # Let's get started
 
-agent.run("I would like to know about employee policies?")
-agent.run("Can you tell me more about maternity policy?")
-agent.run("How many leaves to we have as per maternity policy?")
-agent.run("Can you summarise harassment policy?")
-agent.run("what is the employee code of conduct?")
-agent.run("For how long can I be absent from work?")
-agent.run("How can employees follow health and safety policy?")
+    agent.run("I would like to know about employee policies?")
+
+    agent.run("Can you tell me more about maternity policy?")
+
+    agent.run("How many leaves to we have as per maternity policy?")
+
+    agent.run("Can you summarise harassment policy?")
+
+    agent.run("what is the employee code of conduct?")
+
+    agent.run("For how long can I be absent from work?")
+
+    agent.run("How can employees follow health and safety policy?")
