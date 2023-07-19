@@ -45,7 +45,6 @@ Learn about Vertex AI pricing, and use the Pricing Calculator to generate a cost
 
 !pip install --upgrade google-cloud-aiplatform==1.27.0 langchain==0.0.196 faiss-cpu==1.7.4 --user
 
-
 # Import libraries
 
 import glob
