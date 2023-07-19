@@ -45,6 +45,10 @@ Learn about Vertex AI pricing, and use the Pricing Calculator to generate a cost
 
     !pip install --upgrade google-cloud-aiplatform==1.27.0 langchain==0.0.196 faiss-cpu==1.7.4 --user
 
+
+_**RESTART KERNEL**
+_
+
 # Import libraries
 
     import glob
@@ -62,6 +66,7 @@ Learn about Vertex AI pricing, and use the Pricing Calculator to generate a cost
     from langchain.vectorstores.base import VectorStoreRetriever
     from tqdm import tqdm
 
+
 # Initialize models
 
     llm = VertexAI(
@@ -78,7 +83,7 @@ Learn about Vertex AI pricing, and use the Pricing Calculator to generate a cost
 # Create retrievers
 As mentioned earlier, the objective is to leverage information from closed-domain databases in order to provide more context to the LLM. To do so, you will create a retriever in Langchain capable of interacting with the local vector database.
 
-    !gsutil -m cp -r "gs://genai-document-library*" .
+    !gsutil -m cp -r "gs://genai-document-library/text-files/*" .
 
 You then define a set of functions to enable the creation of the two vector databases.
 
