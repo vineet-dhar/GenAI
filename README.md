@@ -232,15 +232,16 @@ The agent will be initialised with the type CONVERSATIONAL_REACT_DESCRIPTION. To
 # Let's get started
 
     agent.run("I would like to know about employee policies?")
-
+ 
     agent.run("Can you tell me more about maternity policy?")
-
+ 
     agent.run("How many leaves to we have as per maternity policy?")
-
+ 
     agent.run("Can you summarise harassment policy?")
-
+ 
     agent.run("what is the employee code of conduct?")
-
+ 
     agent.run("For how long can I be absent from work?")
-
+ 
     agent.run("How can employees follow health and safety policy?")
+ 
