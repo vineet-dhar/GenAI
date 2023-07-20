@@ -142,17 +142,13 @@ You then define a set of functions to enable the creation of the two vector data
         retriever = db.as_retriever(search_kwargs={"k": top_k_results})
         return retriever
 
-You are now ready to create the Vector DBs using the function defined in the previous step. Each Vector DB will provide a retriever instance, a Python object that, given a query, will provide a list of documents matching that query.
+You are now ready to create the Vector DB using the function defined in the previous step. Vector DB will provide a retriever instance, a Python object that, given a query, will provide a list of documents matching that query.
 
 You will create:
 
-    chunks_retriever = create_retriever(top_k_results=2, dir_path="./chunks/*")
-    docs_retriever = create_retriever(top_k_results=5, dir_path="./docs/*")
+    docs_retriever = create_retriever(top_k_results=5, dir_path="./text-files/*")
 
-Now you are ready to test the retrievers! 
-
-    docs = chunks_retriever.get_relevant_documents("Is there a parental policy?")
-    pprint.pprint([doc.metadata for doc in docs])
+Now you are ready to test the retriever!
     
     docs = docs_retriever.get_relevant_documents("Is there a maternity policy?")
     pprint.pprint([doc.metadata for doc in docs])
@@ -160,22 +156,8 @@ Now you are ready to test the retrievers!
 # Agent
 Now that you have created the retrievers, it's time to create the Langchain Agent, which will implement a ReAct-like approach.
 
-You will first create the two tools to leverage the two retriever objects defined previously, chunks_retriever and docs_retriever
-
-    @tool(return_direct=True)
-    def retrieve_chunks(query: str) -> str:
-        """
-        Searches the catalog to find data for the query.
-        Return the output without processing further.
-        """
-        docs = chunks_retriever.get_relevant_documents(query)
-    
-        return (
-            f"Select the data you would like to explore further about {query}: [START CALLBACK FRONTEND] "
-            + str([doc.metadata for doc in docs])
-            + " [END CALLBACK FRONTEND]"
-        )
-    
+You will first create the tool for retriever objects defined previously, i.e. docs_retriever
+   
     @tool(return_direct=True)
     def retrieve_docs(query: str) -> str:
         """Searches the catalog to find products for the query.
@@ -187,10 +169,10 @@ You will first create the two tools to leverage the two retriever objects define
             + " [END CALLBACK FRONTEND]"
         )
 
-You will define chunks_selector, a tool that will be used by the Agent to capture the action of the user selecting a policy. The path of chunks is used as an identifier of that policy.
+You will define docs_selector, a tool that will be used by the Agent to capture the action of the user selecting a policy. The path of docs is used as an identifier of that policy.
 
     @tool
-    def chunks_selector(path: str) -> str:
+    def docs_selector(path: str) -> str:
         """
         Use this when the user selects a policy.
         You will need to respond to the user telling what are the options once a policy is selected.
@@ -198,17 +180,17 @@ You will define chunks_selector, a tool that will be used by the Agent to captur
         return "I can help you with further information - Just Ask away!"
 
 
-    docs = load_docs_from_directory("./chunks/*")
-    chunks_detail = {doc.metadata["source"]: doc.page_content for doc in docs}
+    docs = load_docs_from_directory("./text-files/*")
+    docs_detail = {doc.metadata["source"]: doc.page_content for doc in docs}
 
 
     @tool
-    def get_chunks_detail(path: str) -> str:
+    def get_docs_detail(path: str) -> str:
         """
         Use it to find more information for a specific policy, such as the policy entitlements, coverage, etc.
         """
         try:
-            return chunks_detail[path]
+            return docs_detail[path]
         except KeyError:
             return "Could not find the details for this policy"
 
@@ -220,10 +202,9 @@ The agent will be initialised with the type CONVERSATIONAL_REACT_DESCRIPTION. To
     memory.clear()
     
     tool = [
-        retrieve_chunks,
         retrieve_docs,
-        get_chunks_detail,
-        chunks_selector,
+        get_docs_detail,
+        docs_selector,
     ]
     agent = initialize_agent(
         tool,
